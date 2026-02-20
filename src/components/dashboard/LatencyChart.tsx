@@ -1,11 +1,12 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
-import type { TraceEntry } from "@/types/agent";
+import type { TraceEntry, HealthStatus } from "@/types/agent";
 
 interface LatencyChartProps {
   traces: TraceEntry[];
+  healthStatus: HealthStatus;
 }
 
-export function LatencyChart({ traces }: LatencyChartProps) {
+export function LatencyChart({ traces, healthStatus }: LatencyChartProps) {
   const data = traces.slice(-20).map((t, i) => ({
     index: i + 1,
     latency: Math.round(t.latency),
@@ -20,14 +21,21 @@ export function LatencyChart({ traces }: LatencyChartProps) {
     );
   }
 
+  const isDegraded = healthStatus === "degraded" || healthStatus === "critical";
+  const strokeColor = isDegraded ? "hsl(0, 72%, 51%)" : "hsl(142, 71%, 45%)";
+
   return (
     <div className="h-[140px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
           <defs>
-            <linearGradient id="latencyFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(0, 0%, 93%)" stopOpacity={0.08} />
-              <stop offset="100%" stopColor="hsl(0, 0%, 93%)" stopOpacity={0} />
+            <linearGradient id="latencyFillGreen" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="latencyFillRed" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(0, 72%, 51%)" stopOpacity={0.2} />
+              <stop offset="100%" stopColor="hsl(0, 72%, 51%)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis
@@ -37,10 +45,12 @@ export function LatencyChart({ traces }: LatencyChartProps) {
             tick={{ fontSize: 9, fill: "hsl(0, 0%, 30%)" }}
           />
           <YAxis
+            domain={[0, 10000]}
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 9, fill: "hsl(0, 0%, 30%)" }}
-            width={32}
+            width={40}
+            tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
           />
           <Tooltip
             contentStyle={{
@@ -55,28 +65,38 @@ export function LatencyChart({ traces }: LatencyChartProps) {
             labelFormatter={(label) => `#${label}`}
           />
           <ReferenceLine
-            y={500}
-            stroke="hsl(0, 0%, 20%)"
-            strokeDasharray="3 3"
+            y={1000}
+            stroke="hsl(45, 93%, 47%)"
+            strokeDasharray="4 4"
+            strokeWidth={1.5}
+            label={{
+              value: "Degradation Threshold",
+              position: "insideTopRight",
+              fill: "hsl(45, 93%, 47%)",
+              fontSize: 9,
+              fontFamily: "monospace",
+            }}
           />
           <Area
             type="monotone"
             dataKey="latency"
-            stroke="hsl(0, 0%, 50%)"
-            fill="url(#latencyFill)"
+            stroke={strokeColor}
+            fill={isDegraded ? "url(#latencyFillRed)" : "url(#latencyFillGreen)"}
             strokeWidth={1.5}
             dot={(props: any) => {
-              const { cx, cy, payload } = props;
+              const { cx, cy, payload, index: dotIndex } = props;
+              const isLast = dotIndex === data.length - 1;
               if (!payload.success) {
                 return (
                   <circle
                     key={`dot-${payload.index}`}
                     cx={cx}
                     cy={cy}
-                    r={3.5}
-                    fill="hsl(0, 65%, 52%)"
-                    stroke="hsl(0, 65%, 52%)"
-                    strokeWidth={1}
+                    r={isLast ? 5 : 3.5}
+                    fill="hsl(0, 72%, 51%)"
+                    stroke="hsl(0, 72%, 40%)"
+                    strokeWidth={isLast ? 2 : 1}
+                    className={isLast && isDegraded ? "animate-pulse" : ""}
                   />
                 );
               }
@@ -85,9 +105,10 @@ export function LatencyChart({ traces }: LatencyChartProps) {
                   key={`dot-${payload.index}`}
                   cx={cx}
                   cy={cy}
-                  r={2}
-                  fill="hsl(0, 0%, 50%)"
-                  stroke="none"
+                  r={isLast ? 4 : 2}
+                  fill={isLast ? "hsl(142, 71%, 45%)" : "hsl(142, 71%, 45%)"}
+                  stroke={isLast ? "hsl(142, 71%, 35%)" : "none"}
+                  strokeWidth={isLast ? 2 : 0}
                 />
               );
             }}

@@ -3,8 +3,10 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
+import os
+import asyncio
 
-from agent import run_agent_stream
+from agent import run_agent_stream, dd_enabled
 from tools import get_recovery_log, get_health_history, get_trace_log, reset_state
 
 app = FastAPI(title="AgentSentinel API", version="1.0.0")
@@ -26,17 +28,24 @@ class AskRequest(BaseModel):
 async def ask_agent(request: AskRequest):
     async def event_stream():
         try:
-            async for line in run_agent_stream(request.question):
-                yield line
+            async for event in run_agent_stream(request.question):
+                yield f"data: {json.dumps(event)}\n\n"
+                await asyncio.sleep(0)
             yield "data: [DONE]\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'data': str(e)})}\n\n"
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Transfer-Encoding": "chunked",
+            "Access-Control-Allow-Origin": "*",
+        },
     )
 
 
@@ -58,6 +67,16 @@ async def traces():
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "agentsentinel", "version": "1.0.0"}
+
+
+@app.get("/datadog-status")
+async def datadog_status():
+    return {
+        "enabled": dd_enabled,
+        "app_name": os.getenv("APP_NAME", "agentsentinel"),
+        "site": os.getenv("DD_SITE", "datadoghq.com"),
+        "dashboard_url": f"https://app.{os.getenv('DD_SITE', 'datadoghq.com')}/llm/traces",
+    }
 
 
 @app.post("/reset")

@@ -1,4 +1,3 @@
-import { ArrowRight } from "lucide-react";
 import type { RecoveryEvent, HealthCheck } from "@/types/agent";
 
 interface SelfHealingPanelProps {
@@ -11,48 +10,83 @@ export function SelfHealingPanel({ recoveryLog, healthHistory }: SelfHealingPane
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-10 flex items-center px-4 border-b border-border shrink-0">
+      <div className="h-10 flex items-center justify-between px-4 border-b border-border shrink-0">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Recovery</span>
         {recoveryLog.length > 0 && (
-          <span className="ml-2 text-[10px] font-mono text-muted-foreground/50">{recoveryLog.length}</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">
+            {recoveryLog.length} event{recoveryLog.length > 1 ? "s" : ""}
+          </span>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
         {recoveryLog.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/30">
-            <p className="text-xs">No recovery events</p>
-            <p className="text-[10px] mt-1">Self-healing events appear here</p>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <p className="text-xs text-muted-foreground/50 italic">
+              🟢 Agent operating normally — no recoveries triggered
+            </p>
           </div>
         ) : (
-          recoveryLog.map((event) => (
+          recoveryLog.map((event, idx) => (
             <div
               key={event.id}
-              className="animate-fade-in rounded-lg border border-border bg-surface-1 p-3"
+              className="animate-fade-in rounded-lg border border-border bg-surface-1 border-l-4 border-l-red-500 overflow-hidden"
+              style={{
+                animation: idx === recoveryLog.length - 1
+                  ? "recovery-flash 2s ease-out"
+                  : undefined,
+              }}
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-1.5 w-1.5 rounded-full bg-status-warn" />
-                  <span className="text-[10px] font-mono font-medium text-status-warn uppercase">
-                    Recovery
+              <div className="p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
+                    ⚡ RECOVERY EVENT
+                  </span>
+                  <span className="text-[10px] font-mono text-muted-foreground/40">
+                    {new Date(event.timestamp).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
                   </span>
                 </div>
-                <span className="text-[10px] font-mono text-muted-foreground/40">
-                  {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+
+                <span className="inline-block text-[9px] font-mono px-1.5 py-0.5 rounded bg-surface-2 text-muted-foreground/50">
+                  recovery_{idx + 1}
                 </span>
+
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-yellow-500/80">
+                    TRIGGER
+                  </span>
+                  <p className="text-[11px] leading-relaxed text-yellow-400/90 mt-0.5 font-mono">
+                    {event.trigger}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded px-2.5 py-2 bg-red-950/30 border border-red-900/20">
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-red-400">
+                      BEFORE
+                    </span>
+                    <p className="text-[11px] font-mono text-muted-foreground mt-1 leading-relaxed">
+                      {event.previousStrategy}
+                    </p>
+                  </div>
+                  <div className="rounded px-2.5 py-2 bg-green-950/30 border border-green-900/20">
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-green-400">
+                      AFTER
+                    </span>
+                    <p className="text-[11px] font-mono text-muted-foreground mt-1 leading-relaxed">
+                      {event.newStrategy}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-[10px] font-mono text-green-400/70">
+                  ✅ Agent resumed task successfully
+                </p>
               </div>
-
-              <p className="text-[12px] leading-relaxed text-secondary-foreground mb-3">{event.description}</p>
-
-              <div className="flex items-center gap-2 text-[10px] font-mono bg-surface-2 rounded px-2.5 py-1.5">
-                <span className="text-status-error">{event.previousStrategy}</span>
-                <ArrowRight className="h-3 w-3 text-muted-foreground/40" />
-                <span className="text-status-ok">{event.newStrategy}</span>
-              </div>
-
-              <p className="mt-2 text-[10px] font-mono text-muted-foreground/50">
-                {event.trigger}
-              </p>
             </div>
           ))
         )}
@@ -84,6 +118,13 @@ export function SelfHealingPanel({ recoveryLog, healthHistory }: SelfHealingPane
           )}
         </div>
       </div>
+
+      <style>{`
+        @keyframes recovery-flash {
+          0% { background-color: rgba(239, 68, 68, 0.15); }
+          100% { background-color: transparent; }
+        }
+      `}</style>
     </div>
   );
 }

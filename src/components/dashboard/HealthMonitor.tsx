@@ -36,7 +36,7 @@ export function HealthMonitor({ healthStatus, traces, avgLatency, consecutiveFai
             <span className="text-[10px] font-mono text-muted-foreground/50">last 20 calls</span>
           </div>
           <div className="rounded-lg border border-border bg-surface-1 p-3">
-            <LatencyChart traces={traces} />
+            <LatencyChart traces={traces} healthStatus={healthStatus} />
           </div>
         </div>
 

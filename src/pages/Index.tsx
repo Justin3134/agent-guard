@@ -6,15 +6,15 @@ import { StatusBar } from "@/components/dashboard/StatusBar";
 import { useAgentState } from "@/hooks/useAgentState";
 
 const Index = () => {
-  const { state, isConnected, runSimulation, resetSimulation, askAgent } = useAgentState();
+  const { state, isConnected, runAgent, resetAgent, askAgent } = useAgentState();
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       <Navbar
         agentStatus={state.status}
         phase={state.phase}
-        onRun={runSimulation}
-        onReset={resetSimulation}
+        onRun={runAgent}
+        onReset={resetAgent}
       />
 
       <div className="flex flex-1 overflow-hidden">

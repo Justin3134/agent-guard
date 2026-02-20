@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Play, RotateCcw } from "lucide-react";
 
 import type { AgentStatus, SimulationPhase } from "@/types/agent";
@@ -15,8 +16,21 @@ const phaseLabels: Record<SimulationPhase, string> = {
   3: "Recovered",
 };
 
+interface DatadogStatus {
+  enabled: boolean;
+  dashboard_url: string;
+}
+
 export function Navbar({ agentStatus, phase, onRun, onReset }: NavbarProps) {
   const isRunning = agentStatus === "running";
+  const [ddStatus, setDdStatus] = useState<DatadogStatus | null>(null);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/datadog-status")
+      .then((res) => res.json())
+      .then((data) => setDdStatus(data))
+      .catch(() => setDdStatus(null));
+  }, []);
 
   return (
     <nav className="flex items-center justify-between h-12 px-4 border-b border-border bg-surface-1">
@@ -35,6 +49,27 @@ export function Navbar({ agentStatus, phase, onRun, onReset }: NavbarProps) {
             Phase {phase} · {phaseLabels[phase]}
           </span>
         </div>
+
+        <div className="h-4 w-px bg-border" />
+
+        {ddStatus?.enabled ? (
+          <a
+            href={ddStatus.dashboard_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-medium text-white transition-colors"
+            style={{ backgroundColor: "#22c55e" }}
+          >
+            ● Datadog Live
+          </a>
+        ) : (
+          <span
+            className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-medium text-white"
+            style={{ backgroundColor: "#6b7280" }}
+          >
+            ○ Datadog Offline
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2">

@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Wrench, Heart, AlertTriangle, Brain, XCircle, RefreshCw } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { ArrowUp } from "lucide-react";
 import type { LogEntry, LogEntryType } from "@/types/agent";
 
 interface ReasoningStreamProps {
@@ -10,16 +8,16 @@ interface ReasoningStreamProps {
   isRunning: boolean;
 }
 
-const typeConfig: Record<LogEntryType, { icon: React.ElementType; colorClass: string; label: string }> = {
-  tool_call: { icon: Wrench, colorClass: "text-log-tool border-log-tool/30 bg-log-tool/5", label: "TOOL" },
-  tool_result: { icon: Wrench, colorClass: "text-log-tool border-log-tool/30 bg-log-tool/5", label: "RESULT" },
-  health_check: { icon: Heart, colorClass: "text-log-health border-log-health/30 bg-log-health/5", label: "HEALTH" },
-  recovery: { icon: RefreshCw, colorClass: "text-log-recovery border-log-recovery/30 bg-log-recovery/5", label: "RECOVERY" },
-  reasoning: { icon: Brain, colorClass: "text-log-reasoning border-log-reasoning/30 bg-log-reasoning/5", label: "THINK" },
-  error: { icon: XCircle, colorClass: "text-log-error border-log-error/30 bg-log-error/5", label: "ERROR" },
+const typeConfig: Record<LogEntryType, { label: string; dotColor: string }> = {
+  tool_call: { label: "tool", dotColor: "bg-foreground/40" },
+  tool_result: { label: "result", dotColor: "bg-foreground/40" },
+  health_check: { label: "health", dotColor: "bg-status-ok" },
+  recovery: { label: "recovery", dotColor: "bg-status-warn" },
+  reasoning: { label: "think", dotColor: "bg-muted-foreground/50" },
+  error: { label: "error", dotColor: "bg-status-error" },
 };
 
-export function ReasoningStream({ entries, onAsk, isRunning }: ReasoningStreamProps) {
+export function ReasoningStream({ entries, onAsk }: ReasoningStreamProps) {
   const [question, setQuestion] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -38,65 +36,61 @@ export function ReasoningStream({ entries, onAsk, isRunning }: ReasoningStreamPr
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-border">
-        <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground flex items-center gap-2">
-          <Brain className="h-4 w-4" />
-          Agent Reasoning
-        </h2>
+      <div className="h-10 flex items-center px-4 border-b border-border shrink-0">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Reasoning</span>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-2">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
         {entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <Brain className="h-8 w-8 mb-3 opacity-30" />
-            <p className="text-sm">Agent is waiting for a task...</p>
-            <p className="text-xs mt-1 opacity-60">Click "Run Agent" or submit a question below</p>
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 px-6">
+            <p className="text-sm">Waiting for input</p>
+            <p className="text-xs mt-1">Run the agent or ask a question</p>
           </div>
         ) : (
-          entries.map((entry) => {
-            const config = typeConfig[entry.type];
-            const Icon = config.icon;
-            return (
-              <div
-                key={entry.id}
-                className={`animate-fade-in-up rounded-md border px-3 py-2 ${config.colorClass}`}
-              >
-                <div className="flex items-start gap-2">
-                  <Icon className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[10px] font-mono font-semibold uppercase opacity-70">
-                        {config.label}
+          <div className="divide-y divide-border">
+            {entries.map((entry) => {
+              const config = typeConfig[entry.type];
+              return (
+                <div key={entry.id} className="animate-fade-in px-4 py-2.5 hover:bg-surface-2/50 transition-colors">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${config.dotColor}`} />
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                      {config.label}
+                    </span>
+                    {entry.latency !== undefined && (
+                      <span className={`text-[10px] font-mono ${entry.latency > 1000 ? "text-status-error" : "text-muted-foreground/50"}`}>
+                        {entry.latency}ms
                       </span>
-                      {entry.latency !== undefined && (
-                        <span className="text-[10px] font-mono opacity-50">
-                          {entry.latency}ms
-                        </span>
-                      )}
-                      <span className="text-[10px] font-mono opacity-30 ml-auto">
-                        {new Date(entry.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-                    <p className="text-xs font-mono leading-relaxed break-words">{entry.content}</p>
+                    )}
+                    <span className="text-[10px] font-mono text-muted-foreground/30 ml-auto">
+                      {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
                   </div>
+                  <p className="text-[12px] font-mono leading-relaxed text-secondary-foreground pl-3.5">
+                    {entry.content}
+                  </p>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="p-3 border-t border-border">
-        <div className="flex gap-2">
-          <Input
+      <form onSubmit={handleSubmit} className="p-3 border-t border-border shrink-0">
+        <div className="flex items-center gap-2 bg-surface-2 rounded-lg border border-border px-3 py-1.5 focus-within:border-foreground/20 transition-colors">
+          <input
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Ask the agent a question..."
-            className="text-xs font-mono bg-muted border-border"
+            placeholder="Ask something..."
+            className="flex-1 bg-transparent text-xs font-mono text-foreground placeholder:text-muted-foreground/40 outline-none"
           />
-          <Button type="submit" size="sm" disabled={!question.trim()}>
-            <Send className="h-3.5 w-3.5" />
-          </Button>
+          <button
+            type="submit"
+            disabled={!question.trim()}
+            className="h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+          </button>
         </div>
       </form>
     </div>

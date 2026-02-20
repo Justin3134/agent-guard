@@ -21,8 +21,9 @@ export function Navbar({ agentStatus, phase, onRun, onReset }: NavbarProps) {
   return (
     <nav className="flex items-center justify-between h-12 px-4 border-b border-border bg-surface-1">
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold tracking-tight text-foreground">AgentGuard</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-bold tracking-tight text-foreground">Agent</span>
+          <span className="text-sm font-light tracking-tight text-muted-foreground">Guard</span>
         </div>
 
         <div className="h-4 w-px bg-border" />

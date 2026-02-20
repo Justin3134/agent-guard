@@ -1,4 +1,5 @@
 import { Play, RotateCcw } from "lucide-react";
+import logoLight from "@/assets/logo-light.png";
 import type { AgentStatus, SimulationPhase } from "@/types/agent";
 
 interface NavbarProps {
@@ -21,7 +22,7 @@ export function Navbar({ agentStatus, phase, onRun, onReset }: NavbarProps) {
     <nav className="flex items-center justify-between h-12 px-4 border-b border-border bg-surface-1">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <img src="/icon-192.png" alt="AgentGuard" className="h-5 w-5 rounded-sm" />
+          <img src={logoLight} alt="AgentGuard" className="h-5 w-5" />
           <span className="text-sm font-semibold tracking-tight text-foreground">AgentGuard</span>
         </div>
 

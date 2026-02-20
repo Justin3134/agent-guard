@@ -1,4 +1,16 @@
+import { useState, useEffect } from "react";
 import type { RecoveryEvent, HealthCheck } from "@/types/agent";
+
+const API_BASE = "http://localhost:8000";
+
+interface PendingApproval {
+  pending: boolean;
+  session_id?: string;
+  agent_name?: string;
+  proposed_fix?: string;
+  failure_context?: Record<string, any>;
+  requested_at?: string;
+}
 
 interface SelfHealingPanelProps {
   recoveryLog: RecoveryEvent[];
@@ -7,6 +19,141 @@ interface SelfHealingPanelProps {
 
 export function SelfHealingPanel({ recoveryLog, healthHistory }: SelfHealingPanelProps) {
   const recentChecks = healthHistory.slice(-5).reverse();
+  const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
+  const [manualFix, setManualFix] = useState("");
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [deciding, setDeciding] = useState(false);
+
+  useEffect(() => {
+    const poll = () => {
+      fetch(`${API_BASE}/api/pending-approval`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.pending) {
+            setPendingApproval(data);
+          } else {
+            setPendingApproval(null);
+            setShowManualInput(false);
+            setManualFix("");
+          }
+        })
+        .catch(() => {});
+    };
+    poll();
+    const interval = setInterval(poll, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleDecision = async (decision: string, customFix?: string) => {
+    if (!pendingApproval?.session_id) return;
+    setDeciding(true);
+    try {
+      await fetch(`${API_BASE}/api/approve-fix`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: pendingApproval.session_id,
+          decision,
+          custom_fix: customFix || null,
+        }),
+      });
+      setPendingApproval(null);
+      setShowManualInput(false);
+      setManualFix("");
+    } catch {}
+    setDeciding(false);
+  };
+
+  if (pendingApproval) {
+    return (
+      <div className="flex flex-col h-full border-2 border-red-500 animate-pulse rounded-lg">
+        <div className="h-10 flex items-center px-4 border-b border-red-500/30 bg-red-950/30 shrink-0">
+          <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
+            ⚡ Action Required
+          </span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-red-400">⚡ AGENT PAUSED</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              {pendingApproval.agent_name || "External Agent"} needs your decision
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-red-800 bg-red-950/40 p-3">
+            <p className="text-[10px] font-bold tracking-widest text-red-400 mb-2 uppercase">
+              FAILURE DETECTED
+            </p>
+            {pendingApproval.failure_context && (
+              <div className="space-y-1.5">
+                {Object.entries(pendingApproval.failure_context).map(([k, v]) => (
+                  <div key={k} className="flex gap-2 text-[11px] font-mono">
+                    <span className="text-muted-foreground/50 shrink-0">{k}:</span>
+                    <span className="text-red-300">{String(v)}{k === "avg_latency_ms" ? "ms" : ""}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-blue-800 bg-blue-950/40 p-3">
+            <p className="text-[10px] font-bold tracking-widest text-blue-400 mb-2 uppercase">
+              PROPOSED FIX (by Claude via Bedrock)
+            </p>
+            <p className="text-xs text-foreground leading-relaxed">
+              {pendingApproval.proposed_fix}
+            </p>
+          </div>
+
+          <div className="space-y-2 pt-1">
+            <button
+              onClick={() => handleDecision("approved")}
+              disabled={deciding}
+              className="w-full h-12 rounded-lg text-lg font-bold text-white transition-colors disabled:opacity-50"
+              style={{ backgroundColor: "#22c55e" }}
+            >
+              ✅ Approve Fix
+            </button>
+            <button
+              onClick={() => handleDecision("declined")}
+              disabled={deciding}
+              className="w-full h-12 rounded-lg text-lg font-bold text-white transition-colors disabled:opacity-50"
+              style={{ backgroundColor: "#ef4444" }}
+            >
+              ❌ Decline &amp; Stop
+            </button>
+            <button
+              onClick={() => setShowManualInput(!showManualInput)}
+              className="w-full h-10 rounded-lg text-base font-medium border border-border text-muted-foreground hover:text-foreground transition-colors"
+              style={showManualInput ? { backgroundColor: "rgba(139,92,246,0.15)" } : {}}
+            >
+              ✏️ Apply Custom Fix Instead
+            </button>
+            {showManualInput && (
+              <div className="space-y-2 pt-1">
+                <textarea
+                  value={manualFix}
+                  onChange={(e) => setManualFix(e.target.value)}
+                  placeholder="Describe your custom fix..."
+                  rows={3}
+                  className="w-full rounded-lg border border-border bg-surface-2 p-3 text-sm font-mono text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-foreground/20 resize-none"
+                />
+                <button
+                  onClick={() => handleDecision("manual", manualFix)}
+                  disabled={!manualFix.trim() || deciding}
+                  className="w-full h-10 rounded-lg text-sm font-semibold text-white disabled:opacity-40 transition-colors"
+                  style={{ backgroundColor: "#8b5cf6" }}
+                >
+                  Apply My Fix
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -23,7 +170,7 @@ export function SelfHealingPanel({ recoveryLog, healthHistory }: SelfHealingPane
         {recoveryLog.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-xs text-muted-foreground/50 italic">
-              🟢 Agent operating normally — no recoveries triggered
+              🟢 All agents operating normally
             </p>
           </div>
         ) : (

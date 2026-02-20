@@ -7,3 +7,4 @@ boto3
 requests
 anthropic
 pydantic
+neo4j

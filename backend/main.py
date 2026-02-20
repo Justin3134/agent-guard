@@ -2,14 +2,19 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 import json
 import os
+import time
 import asyncio
+import logging
 
-from agent import run_agent_stream, dd_enabled
-from tools import get_recovery_log, get_health_history, get_trace_log, reset_state
+from prism_agents import run_prism, dd_enabled
+from neo4j_client import prism_graph
 
-app = FastAPI(title="AgentSentinel API", version="1.0.0")
+logger = logging.getLogger("prism.api")
+
+app = FastAPI(title="Prism API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,20 +25,27 @@ app.add_middleware(
 )
 
 
-class AskRequest(BaseModel):
-    question: str
+# ─── Pydantic models ─────────────────────────────────────────────────────────
 
+class ResearchRequest(BaseModel):
+    question: str
+    session_id: Optional[str] = None
+
+
+# ─── Core endpoints ──────────────────────────────────────────────────────────
 
 @app.post("/ask")
-async def ask_agent(request: AskRequest):
+async def ask(body: ResearchRequest):
+    session_id = body.session_id or f"prism_{int(time.time())}"
+
     async def event_stream():
         try:
-            async for event in run_agent_stream(request.question):
+            async for event in run_prism(body.question, session_id):
                 yield f"data: {json.dumps(event)}\n\n"
                 await asyncio.sleep(0)
             yield "data: [DONE]\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'data': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'agent': 'system', 'data': str(e)})}\n\n"
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(
@@ -49,40 +61,38 @@ async def ask_agent(request: AskRequest):
     )
 
 
-@app.get("/recovery-log")
-async def recovery_log():
-    return JSONResponse(content=get_recovery_log())
+@app.get("/api/graph/{session_id}")
+async def get_graph(session_id: str):
+    prism_graph.set_session(session_id)
+    return JSONResponse(content=prism_graph.get_graph_data())
 
 
-@app.get("/health-history")
-async def health_history():
-    return JSONResponse(content=get_health_history())
+@app.get("/api/findings/{session_id}")
+async def get_findings(session_id: str):
+    prism_graph.set_session(session_id)
+    return JSONResponse(content=prism_graph.get_all_findings())
 
 
-@app.get("/traces")
-async def traces():
-    return JSONResponse(content=get_trace_log())
+@app.post("/api/reset-session/{session_id}")
+async def reset_session(session_id: str):
+    prism_graph.set_session(session_id)
+    prism_graph.clear_session()
+    return {"cleared": True, "session_id": session_id}
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "agentsentinel", "version": "1.0.0"}
+    return {"status": "ok", "service": "prism", "version": "1.0.0"}
 
 
 @app.get("/datadog-status")
 async def datadog_status():
     return {
         "enabled": dd_enabled,
-        "app_name": os.getenv("APP_NAME", "agentsentinel"),
+        "app_name": "prism",
         "site": os.getenv("DD_SITE", "datadoghq.com"),
         "dashboard_url": f"https://app.{os.getenv('DD_SITE', 'datadoghq.com')}/llm/traces",
     }
-
-
-@app.post("/reset")
-async def reset():
-    reset_state()
-    return {"reset": True, "message": "Agent state cleared."}
 
 
 if __name__ == "__main__":

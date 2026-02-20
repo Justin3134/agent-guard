@@ -1,0 +1,9 @@
+strands-agents
+fastapi
+uvicorn
+python-dotenv
+ddtrace
+boto3
+requests
+anthropic
+pydantic

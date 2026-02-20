@@ -248,6 +248,8 @@ export function useAgentState() {
   const askAgent = useCallback(async (question: string) => {
     addLogEntry({ type: "reasoning", content: `Processing user query: "${question}"` });
 
+    setState((prev) => ({ ...prev, status: "running", sessionStart: new Date().toISOString() }));
+
     try {
       const res = await fetch(`${API_BASE}/ask`, {
         method: "POST",
@@ -255,28 +257,117 @@ export function useAgentState() {
         body: JSON.stringify({ question }),
       });
 
-      if (res.ok && res.body) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let accumulated = "";
+      if (!res.ok || !res.body) throw new Error("Backend unavailable");
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          accumulated += decoder.decode(value, { stream: true });
+      setIsConnected(true);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffered = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffered += decoder.decode(value, { stream: true });
+        const lines = buffered.split("\n");
+        buffered = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data: ")) continue;
+          const raw = trimmed.slice(6).trim();
+          if (raw === "[DONE]") {
+            setState((prev) => ({ ...prev, status: "idle" }));
+            return;
+          }
+
+          let evt: any;
+          try { evt = JSON.parse(raw); } catch { continue; }
+
+          if (evt.type === "trace") {
+            setState((prev) => {
+              const newTrace: TraceEntry = {
+                id: evt.id || generateId(),
+                traceId: evt.traceId || `trace-${generateId()}`,
+                tool: evt.tool || "unknown",
+                latency: evt.latency || 0,
+                success: evt.success ?? true,
+                timestamp: evt.timestamp || new Date().toISOString(),
+              };
+              const newTraces = [...prev.traces, newTrace].slice(-20);
+              const avgLatency = newTraces.length > 0
+                ? Math.round(newTraces.reduce((a, t) => a + t.latency, 0) / newTraces.length)
+                : 0;
+              const consecutiveFailures = (() => {
+                let count = 0;
+                for (let i = newTraces.length - 1; i >= 0; i--) {
+                  if (!newTraces[i].success) count++;
+                  else break;
+                }
+                return count;
+              })();
+              const healthStatus: HealthStatus =
+                consecutiveFailures >= 3 ? "critical" :
+                consecutiveFailures >= 2 ? "degraded" : "healthy";
+              const phase: SimulationPhase =
+                healthStatus === "critical" ? 2 :
+                healthStatus === "degraded" ? 2 :
+                prev.recoveryLog.length > 0 ? 3 : 1;
+              return {
+                ...prev,
+                traces: newTraces,
+                avgLatency,
+                consecutiveFailures,
+                healthStatus,
+                phase,
+                totalToolCalls: prev.totalToolCalls + 1,
+              };
+            });
+          } else if (evt.type === "health_check" || evt.type === "tool_call" || evt.type === "tool_result" || evt.type === "recovery" || evt.type === "error" || evt.type === "reasoning") {
+            const logEntry: Omit<LogEntry, "id" | "timestamp"> = {
+              type: evt.type as LogEntry["type"],
+              content: evt.content || "",
+              tool: evt.tool,
+              latency: evt.latency,
+              success: evt.success,
+            };
+            addLogEntry(logEntry);
+
+            if (evt.type === "recovery") {
+              await pollBackend();
+              setState((prev) => ({
+                ...prev,
+                healthStatus: "healthy",
+                consecutiveFailures: 0,
+                phase: 3,
+              }));
+            }
+
+            if (evt.type === "health_check") {
+              const healthEntry: HealthCheck = {
+                id: evt.id || generateId(),
+                timestamp: evt.timestamp || new Date().toISOString(),
+                status: evt.success ? "healthy" : "critical",
+                latency: evt.latency || 0,
+                tool: evt.tool || "unknown",
+                success: evt.success ?? true,
+              };
+              setState((prev) => ({
+                ...prev,
+                healthHistory: [...prev.healthHistory, healthEntry].slice(-20),
+              }));
+            }
+          }
         }
-
-        addLogEntry({ type: "tool_result", content: accumulated });
-      } else {
-        throw new Error("Backend unavailable");
       }
     } catch {
       addLogEntry({
         type: "reasoning",
         content: `Agent would process: "${question}" — Backend not connected, showing demo mode.`,
       });
+    } finally {
+      setState((prev) => ({ ...prev, status: "idle" }));
     }
-  }, [addLogEntry]);
+  }, [addLogEntry, pollBackend]);
 
   // Start polling when connected
   useEffect(() => {

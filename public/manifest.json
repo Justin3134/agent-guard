@@ -1,6 +1,6 @@
 {
-  "name": "AgentGuard",
-  "short_name": "AgentGuard",
+  "name": "AgentSentinel",
+  "short_name": "AgentSentinel",
   "description": "Real-time observability for self-healing AI agents",
   "start_url": "/",
   "display": "standalone",

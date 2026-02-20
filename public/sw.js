@@ -1,4 +1,4 @@
-const CACHE_NAME = "agentguard-v1";
+const CACHE_NAME = "agentsentinel-v1";
 const ASSETS = ["/", "/index.html", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {

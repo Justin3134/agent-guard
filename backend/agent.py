@@ -38,14 +38,18 @@ logger = logging.getLogger("agentsentinel")
 
 _aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
 _aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-_aws_region = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+_aws_session_token = os.getenv("AWS_SESSION_TOKEN")
+_aws_region = os.getenv("AWS_DEFAULT_REGION", "us-west-2")
 
 if _aws_access_key and _aws_secret_key:
-    _boto_session = boto3.session.Session(
-        aws_access_key_id=_aws_access_key,
-        aws_secret_access_key=_aws_secret_key,
-        region_name=_aws_region,
-    )
+    _session_kwargs = {
+        "aws_access_key_id": _aws_access_key,
+        "aws_secret_access_key": _aws_secret_key,
+        "region_name": _aws_region,
+    }
+    if _aws_session_token:
+        _session_kwargs["aws_session_token"] = _aws_session_token
+    _boto_session = boto3.session.Session(**_session_kwargs)
     bedrock_model = BedrockModel(
         model_id="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
         boto_session=_boto_session,

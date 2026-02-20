@@ -8,14 +8,12 @@ export default {
     container: {
       center: true,
       padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
+      screens: { "2xl": "1400px" },
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "monospace"],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+        mono: ["IBM Plex Mono", "SF Mono", "Menlo", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -61,29 +59,15 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        health: {
-          ok: "hsl(var(--health-ok))",
-          "ok-foreground": "hsl(var(--health-ok-foreground))",
-          degraded: "hsl(var(--health-degraded))",
-          "degraded-foreground": "hsl(var(--health-degraded-foreground))",
-          critical: "hsl(var(--health-critical))",
-          "critical-foreground": "hsl(var(--health-critical-foreground))",
+        status: {
+          ok: "hsl(var(--status-ok))",
+          warn: "hsl(var(--status-warn))",
+          error: "hsl(var(--status-error))",
         },
         surface: {
-          elevated: "hsl(var(--surface-elevated))",
-          overlay: "hsl(var(--surface-overlay))",
-        },
-        log: {
-          tool: "hsl(var(--log-tool))",
-          health: "hsl(var(--log-health))",
-          recovery: "hsl(var(--log-recovery))",
-          error: "hsl(var(--log-error))",
-          reasoning: "hsl(var(--log-reasoning))",
-        },
-        chart: {
-          line: "hsl(var(--chart-line))",
-          spike: "hsl(var(--chart-spike))",
-          grid: "hsl(var(--chart-grid))",
+          1: "hsl(var(--surface-1))",
+          2: "hsl(var(--surface-2))",
+          3: "hsl(var(--surface-3))",
         },
       },
       borderRadius: {

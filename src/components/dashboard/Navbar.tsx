@@ -1,5 +1,4 @@
-import { Shield, Play, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Play, RotateCcw } from "lucide-react";
 import type { AgentStatus, SimulationPhase } from "@/types/agent";
 
 interface NavbarProps {
@@ -10,59 +9,58 @@ interface NavbarProps {
 }
 
 const phaseLabels: Record<SimulationPhase, string> = {
-  1: "Normal Operation",
-  2: "Failure Detection",
-  3: "Self-Healed",
-};
-
-const phaseColors: Record<SimulationPhase, string> = {
-  1: "bg-health-ok/20 text-health-ok",
-  2: "bg-health-degraded/20 text-health-degraded",
-  3: "bg-health-ok/20 text-health-ok",
+  1: "Normal",
+  2: "Detecting",
+  3: "Recovered",
 };
 
 export function Navbar({ agentStatus, phase, onRun, onReset }: NavbarProps) {
   const isRunning = agentStatus === "running";
 
   return (
-    <nav className="flex items-center justify-between px-6 py-3 border-b border-border bg-card">
-      <div className="flex items-center gap-3">
+    <nav className="flex items-center justify-between h-12 px-4 border-b border-border bg-surface-1">
+      <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-primary" />
-          <span className="text-lg font-semibold tracking-tight">AgentGuard</span>
+          <img src="/icon-192.png" alt="AgentGuard" className="h-5 w-5 rounded-sm" />
+          <span className="text-sm font-semibold tracking-tight text-foreground">AgentGuard</span>
         </div>
-        <div className={`ml-4 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium ${phaseColors[phase]}`}>
-          Phase {phase}: {phaseLabels[phase]}
+
+        <div className="h-4 w-px bg-border" />
+
+        <div className="flex items-center gap-1.5">
+          <div className={`h-1.5 w-1.5 rounded-full ${
+            phase === 1 ? "bg-status-ok" : phase === 2 ? "bg-status-warn animate-subtle-pulse" : "bg-status-ok"
+          }`} />
+          <span className="text-xs font-mono text-muted-foreground">
+            Phase {phase} · {phaseLabels[phase]}
+          </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 mr-2">
-          <div className={`h-2 w-2 rounded-full ${isRunning ? "bg-health-ok animate-pulse-glow" : "bg-muted-foreground"}`} />
-          <span className="text-xs font-mono text-muted-foreground">
-            {isRunning ? "Agent Running" : "Agent Idle"}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 mr-3">
+          <div className={`h-1.5 w-1.5 rounded-full ${isRunning ? "bg-status-ok animate-subtle-pulse" : "bg-muted-foreground/40"}`} />
+          <span className="text-xs text-muted-foreground">
+            {isRunning ? "Running" : "Idle"}
           </span>
         </div>
 
-        <Button
-          size="sm"
+        <button
           onClick={onRun}
           disabled={isRunning}
-          className="gap-1.5"
+          className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded-md bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          <Play className="h-3.5 w-3.5" />
+          <Play className="h-3 w-3" />
           Run Agent
-        </Button>
+        </button>
 
-        <Button
-          size="sm"
-          variant="outline"
+        <button
           onClick={onReset}
-          className="gap-1.5"
+          className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
         >
-          <RotateCcw className="h-3.5 w-3.5" />
+          <RotateCcw className="h-3 w-3" />
           Reset
-        </Button>
+        </button>
       </div>
     </nav>
   );
